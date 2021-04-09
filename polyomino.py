@@ -1,9 +1,11 @@
 import numpy as np
-import itertools
+from itertools import chain
+from typing import Union
+from typing import Generator
 
 
-def _pop_pm(pm_pl: list, i) -> tuple:
-    # pm_pl[i]: list
+def _pop_pm(pm_pl: list[list[Union[tuple[int, int], int]]],
+            i: int) -> tuple[tuple[int, int], int, bool]:
     pm_dim = pm_pl[i][0]
     pm_type = pm_pl[i][2]
     if pm_pl[i][1] == 1:
@@ -15,8 +17,8 @@ def _pop_pm(pm_pl: list, i) -> tuple:
     return pm_dim, pm_type, deleted
 
 
-def _push_pm(pm_pl: list, i, pm_dim, pm_type, deleted):
-    # pm_pl[i]: list
+def _push_pm(pm_pl: list[list[Union[tuple[int, int], int]]],
+             i: int, pm_dim: tuple[int, int], pm_type: int, deleted: bool) -> None:
     if deleted:
         pm_pl.insert(i, [pm_dim, 1, pm_type])
     else:
@@ -29,13 +31,13 @@ class Table:
     которая выбирается из свободных клеток (элементы матрицы, равные нулю) слева направо сверху вниз
     """
 
-    def __init__(self, m: tuple):
+    def __init__(self, m: Union[tuple[int, int], list[tuple[tuple[int, int], int]]]):
         self.mat = np.zeros((m[1], m[0]), dtype=int)  # матрица стола
         self.point = (0, 0)  # точка добавления следующего полиомино
         self.prev_points = []  # точки добавления предыдущих полиомино для возможности их удаления
-        # self.not_full = True  # возможность добавления следующего полиомино
 
-    def _check_dim(self, pm_dim: tuple, pm_type, p, angle):
+    def _check_dim(self, pm_dim: tuple[int, int], pm_type: int,
+                   p: tuple[int, int], angle: int) -> bool:
         # проверка попадания полиомино на стол по габаритам
         mat = self.mat
         if angle % 2 == 0:
@@ -49,7 +51,8 @@ class Table:
             return (p[1] + pm_dim[0] <= mat.shape[0] and
                     p[0] + pm_dim[1] <= mat.shape[1])
 
-    def _check_shape(self, pm_dim: tuple, pm_type, p, angle):
+    def _check_shape(self, pm_dim: tuple[int, int], pm_type: int,
+                     p: tuple[int, int], angle: int) -> bool:
         # итератор набора клеток стола для проверки возможности добавления на него полиомино
         mat = self.mat
         if pm_type == 1:  # прямоугольный полиомино
@@ -85,13 +88,14 @@ class Table:
                 else:  # поворот на 3 * pi / 2
                     a_wing = mat[p[1]:p[1] + pm_dim[0], p[0] + pm_dim[1] - 1]
                     b_wing = mat[p[1], p[0]:p[0] + pm_dim[1] - 1]
-            cells = itertools.chain(a_wing.flat, b_wing.flat)
+            cells = chain(a_wing.flat, b_wing.flat)
         for cell in cells:
             if cell > 0:
                 return False
         return True
 
-    def _add_pm(self, pm_dim: tuple, pm_type, p, angle, num, sign):
+    def _add_pm(self, pm_dim: tuple[int, int], pm_type: int,
+                p: tuple[int, int], angle: int, num: int, sign: int) -> None:
         # добавление очередного полиомино на стол
         mat = self.mat
         if pm_type == 1:  # прямоугольный полиомино
@@ -139,7 +143,7 @@ class Table:
                     pm_mat = np.concatenate((pm_mat, a_wing), axis=1)
                     mat[p[1]:p[1] + pm_dim[0], p[0]:p[0] + pm_dim[1]] += pm_mat
 
-    def _free_points(self):
+    def _free_points(self) -> Generator[tuple[int, int], None, None]:
         # генератор следующей точки добавления полиомино
         p = self.point
         mat = self.mat
@@ -152,7 +156,7 @@ class Table:
                 if mat[i, j] == 0:
                     yield j, i
 
-    def place_pm(self, pm_pl: list, num) -> bool:
+    def place_pm(self, pm_pl: list[list[Union[tuple[int, int], int]]], num: int) -> bool:
         # рекурсивное расположение набора полиомино на столе
         if len(pm_pl) == 0:
             return True  # первая подходящая конфигурация полиомино найдена, выход из рекурсии
@@ -182,14 +186,14 @@ class Pavement:
     Класс для проверки замощения стола table множеством полиомино pm_pl
     """
 
-    def __init__(self, data: list):
+    def __init__(self, data: list[Union[tuple[int, int], list[tuple[tuple[int, int], int]]]]):
         m = data[0]  # размер стола
         s = ([(s1, s2), n, 1] for (s1, s2), n in data[1])  # генератор данных прямоугольных полиомино
         q = ([(q1, q2), n, 2] for (q1, q2), n in data[2])  # генератор данных l-полиомино
         self.table = Table(m)  # стол для мощения
         self.pm_pl = [*s, *q]  # polyomino plurality в виде общего списка
 
-    def probe(self):
+    def probe(self) -> bool:
         # простейшая проверка возможности замощения стола путём подсчёта общей площади полиомино
         sum_sqr = 0
         for pm in self.pm_pl:
@@ -199,11 +203,11 @@ class Pavement:
                 sum_sqr += (sum(pm[0]) - 1) * pm[1]
         return sum_sqr <= self.table.mat.size
 
-    def find(self):
+    def find(self) -> bool:
         # поиск замощения table множеством pm_pl
         return self.table.place_pm(self.pm_pl, 1)
 
-    def answer(self):
+    def answer(self) -> None:
         # решение задачи и печать ответа
         if self.probe() and self.find():
             print('Правда')
